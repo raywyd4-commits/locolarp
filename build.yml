@@ -8,23 +8,18 @@ jobs:
     runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-      - run: npm install
-      - run: npx cap add ios
-      - run: npx cap sync ios
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
       - name: Build unsigned app
-        run: |
-          xcodebuild -project ios/App/App.xcodeproj -scheme App -configuration Release \
-            -sdk iphoneos -derivedDataPath build \
-            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+        run: xcodebuild -project LocationChanger.xcodeproj -scheme LocationChanger -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
       - name: Package ipa
         run: |
           mkdir Payload
-          cp -R build/Build/Products/Release-iphoneos/App.app Payload/
-          zip -r BuildQuote.ipa Payload
+          cp -R build/Build/Products/Release-iphoneos/LocationChanger.app Payload/
+          zip -r LocationChanger.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
-          name: BuildQuote-ipa
-          path: BuildQuote.ipa
+          name: LocationChanger-ipa
+          path: LocationChanger.ipa
