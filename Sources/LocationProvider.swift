@@ -1,10 +1,12 @@
+
 import Foundation
 import CoreLocation
+import Combine
 
-/// Single source of location for the whole app.
-/// Wraps CLLocationManager: when simulation is on, `effectiveLocation` returns the
-/// simulated coordinate instead of the real GPS fix. Real GPS keeps updating underneath.
+/// Central location source for the entire app.
+/// All location-dependent features should read `effectiveLocation`.
 final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDelegate {
+
     private let manager = CLLocationManager()
 
     @Published private(set) var realLocation: CLLocation?
@@ -15,49 +17,68 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
 
     override init() {
         super.init()
+
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
+
         authorization = manager.authorizationStatus
         manager.requestWhenInUseAuthorization()
         manager.startUpdatingLocation()
     }
 
+    /// Enable or update the simulated location.
     func simulate(_ coordinate: CLLocationCoordinate2D) {
-        simulatedLocation = CLLocation(
+        let location = CLLocation(
             coordinate: coordinate,
             altitude: 0,
             horizontalAccuracy: 5,
             verticalAccuracy: 5,
             timestamp: Date()
         )
+
+        simulatedLocation = location
         isSimulating = true
         publish()
     }
 
+    /// Return to using the device's real location.
     func useRealLocation() {
         isSimulating = false
         publish()
     }
 
     private func publish() {
-        effectiveLocation = isSimulating ? simulatedLocation : realLocation
+        effectiveLocation = isSimulating
+            ? simulatedLocation
+            : realLocation
     }
 
     // MARK: CLLocationManagerDelegate
 
-    func locationManager(_ manager: CLLocationManager, didUpdateLocations locations: [CLLocation]) {
-        realLocation = locations.last
+    func locationManager(
+        _ manager: CLLocationManager,
+        didUpdateLocations locations: [CLLocation]
+    ) {
+        guard let location = locations.last else { return }
+        realLocation = location
         publish()
     }
 
-    func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
+    func locationManagerDidChangeAuthorization(
+        _ manager: CLLocationManager
+    ) {
         authorization = manager.authorizationStatus
-        if authorization == .authorizedWhenInUse || authorization == .authorizedAlways {
+
+        if authorization == .authorizedWhenInUse ||
+           authorization == .authorizedAlways {
             manager.startUpdatingLocation()
         }
     }
 
-    func locationManager(_ manager: CLLocationManager, didFailWithError error: Error) {
-        // Keep the last known location; nothing to do.
+    func locationManager(
+        _ manager: CLLocationManager,
+        didFailWithError error: Error
+    ) {
+        print("Location error: \(error.localizedDescription)")
     }
 }
