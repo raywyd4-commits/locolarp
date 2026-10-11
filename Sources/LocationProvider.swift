@@ -3,8 +3,10 @@ import Foundation
 import CoreLocation
 import Combine
 
-/// Central location source for the entire app.
-/// All location-dependent features should read `effectiveLocation`.
+/// Central location source for this app.
+///
+/// When simulation is active, effectiveLocation uses the selected
+/// simulated coordinate, regardless of incoming real GPS updates.
 final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDelegate {
 
     private let manager = CLLocationManager()
@@ -14,6 +16,7 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
     @Published private(set) var isSimulating = false
     @Published private(set) var effectiveLocation: CLLocation?
     @Published private(set) var authorization: CLAuthorizationStatus = .notDetermined
+    @Published private(set) var locationError: String?
 
     override init() {
         super.init()
@@ -22,12 +25,25 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
         manager.desiredAccuracy = kCLLocationAccuracyBest
 
         authorization = manager.authorizationStatus
+
+        // Request permission before relying on GPS updates.
         manager.requestWhenInUseAuthorization()
-        manager.startUpdatingLocation()
+
+        if authorization == .authorizedWhenInUse ||
+           authorization == .authorizedAlways {
+            manager.startUpdatingLocation()
+        }
     }
 
-    /// Enable or update the simulated location.
+    // MARK: - Simulation
+
+    /// Activate or update the simulated location.
     func simulate(_ coordinate: CLLocationCoordinate2D) {
+        guard CLLocationCoordinate2DIsValid(coordinate) else {
+            locationError = "Invalid coordinates."
+            return
+        }
+
         let location = CLLocation(
             coordinate: coordinate,
             altitude: 0,
@@ -38,14 +54,19 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
 
         simulatedLocation = location
         isSimulating = true
+        locationError = nil
+
         publish()
     }
 
-    /// Return to using the device's real location.
+    /// Stop simulation and use the latest real GPS location.
     func useRealLocation() {
         isSimulating = false
+        locationError = nil
         publish()
     }
+
+    // MARK: - Location Publishing
 
     private func publish() {
         effectiveLocation = isSimulating
@@ -53,14 +74,18 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
             : realLocation
     }
 
-    // MARK: CLLocationManagerDelegate
+    // MARK: - CLLocationManagerDelegate
 
     func locationManager(
         _ manager: CLLocationManager,
         didUpdateLocations locations: [CLLocation]
     ) {
         guard let location = locations.last else { return }
+
         realLocation = location
+        locationError = nil
+
+        // Real GPS updates won't replace the simulated effective location.
         publish()
     }
 
@@ -69,9 +94,19 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
     ) {
         authorization = manager.authorizationStatus
 
-        if authorization == .authorizedWhenInUse ||
-           authorization == .authorizedAlways {
+        switch authorization {
+        case .authorizedWhenInUse, .authorizedAlways:
             manager.startUpdatingLocation()
+
+        case .denied, .restricted:
+            manager.stopUpdatingLocation()
+            locationError = "Location access is denied or restricted."
+
+        case .notDetermined:
+            break
+
+        @unknown default:
+            break
         }
     }
 
@@ -79,6 +114,7 @@ final class LocationProvider: NSObject, ObservableObject, CLLocationManagerDeleg
         _ manager: CLLocationManager,
         didFailWithError error: Error
     ) {
+        locationError = error.localizedDescription
         print("Location error: \(error.localizedDescription)")
     }
 }
