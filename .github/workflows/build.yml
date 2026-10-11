@@ -1,22 +1,25 @@
-name: LocationChanger
-options:
-  bundleIdPrefix: com.ray
-  deploymentTarget:
-    iOS: "17.0"
-targets:
-  LocationChanger:
-    type: application
-    platform: iOS
-    sources: [Sources]
-    info:
-      path: Sources/Info.plist
-      properties:
-        CFBundleDisplayName: Location Changer
-        UILaunchScreen: {}
-        UISupportedInterfaceOrientations: [UIInterfaceOrientationPortrait]
-        NSLocationWhenInUseUsageDescription: "Shows your location on the map and lets you test a simulated location inside this app."
-    settings:
-      base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.ray.locationchanger
-        SWIFT_VERSION: "5.0"
-        TARGETED_DEVICE_FAMILY: "1"
+name: Build IPA
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install XcodeGen
+        run: brew install xcodegen
+      - name: Generate project
+        run: xcodegen generate
+      - name: Build unsigned app
+        run: xcodebuild -project LocationChanger.xcodeproj -scheme LocationChanger -configuration Release -sdk iphoneos -derivedDataPath build CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" build
+      - name: Package ipa
+        run: |
+          mkdir Payload
+          cp -R build/Build/Products/Release-iphoneos/LocationChanger.app Payload/
+          zip -r LocoLarp.ipa Payload
+      - uses: actions/upload-artifact@v4
+        with:
+          name: LocoLarp-ipa
+          path: LocoLarp.ipa
