@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Build Quote">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<title>Build Quote</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@400;600;800&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#E4E7EA; --card:#F4F5F6; --ink:#161C24; --mute:#5E6872; --line:#C3C9CF;
+  --accent:#0F6E6E; --accent-ink:#FFFFFF; --warn:#B4412B; --good:#1E7A46;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:#12171C; --card:#1B222A; --ink:#E8ECEF; --mute:#8D98A3; --line:#2D3742;
+    --accent:#3FB5B0; --accent-ink:#06201F; --warn:#E5806B; --good:#58C48A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#12171C; --card:#1B222A; --ink:#E8ECEF; --mute:#8D98A3; --line:#2D3742;
+  --accent:#3FB5B0; --accent-ink:#06201F; --warn:#E5806B; --good:#58C48A;
+}
+*{box-sizing:border-box}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:"Bricolage Grotesque",system-ui,-apple-system,"Segoe UI",sans-serif;font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%}
+main{max-width:560px;margin:0 auto;padding:16px 16px 48px}
+h1{font-size:28px;font-weight:800;letter-spacing:-.02em;margin:8px 0 2px}
+.sub{color:var(--mute);margin:0 0 16px;font-size:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:14px}
+label{display:block;font-size:13px;color:var(--mute);margin-bottom:4px}
+input,select{width:100%;font:inherit;color:var(--ink);background:var(--bg);border:1px solid var(--line);border-radius:10px;padding:11px 12px;min-height:44px}
+input:focus,select:focus,button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+.mono{font-family:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.part{display:grid;grid-template-columns:104px 1fr 92px 36px;gap:6px;align-items:center;margin-bottom:8px}
+.part input,.part select{padding:9px 8px;font-size:15px}
+.part .price{text-align:right}
+.x{min-height:44px;width:36px;border:0;background:none;color:var(--mute);font-size:22px;cursor:pointer}
+.btn{font:inherit;font-weight:600;border:0;border-radius:10px;min-height:46px;padding:0 16px;cursor:pointer;background:var(--accent);color:var(--accent-ink)}
+.btn.ghost{background:none;color:var(--ink);border:1px solid var(--line)}
+.btns{display:flex;gap:8px;flex-wrap:wrap}
+.btns .btn{flex:1}
+.sum{display:flex;justify-content:space-between;padding:6px 0;border-bottom:1px dashed var(--line)}
+.sum:last-child{border:0}
+.total{font-size:34px;font-weight:800;letter-spacing:-.02em}
+.profit{color:var(--good);font-weight:600}
+.profit.neg{color:var(--warn)}
+.saved{display:flex;justify-content:space-between;align-items:center;gap:8px;padding:10px 0;border-bottom:1px solid var(--line)}
+.saved:last-child{border:0}
+.saved button.open{all:unset;cursor:pointer;flex:1}
+.saved small{color:var(--mute);display:block}
+.empty{color:var(--mute);font-size:14px;margin:0}
+.toast{position:fixed;left:50%;bottom:calc(20px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:999px;font-size:14px;opacity:0;pointer-events:none;transition:opacity .2s}
+.toast.show{opacity:1}
+.scroll{overflow-x:auto}
+@media (max-width:420px){
+  .part{grid-template-columns:1fr 84px 32px}
+  .part select{grid-column:1 / -1}
+}
+@media (prefers-reduced-motion:reduce){.toast{transition:none}}
+</style>
+</head>
+<body>
+<main>
+  <h1>Build Quote</h1>
+  <p class="sub">Price a custom PC. Parts in, customer total out.</p>
+
+  <section class="card">
+    <div class="row">
+      <div><label for="cust">Customer</label><input id="cust" placeholder="Name" autocomplete="off"></div>
+      <div><label for="bname">Build name</label><input id="bname" placeholder="e.g. 1440p gaming" autocomplete="off"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <label>Parts (your cost)</label>
+    <div id="parts"></div>
+    <div class="btns"><button class="btn ghost" id="add">Add part</button><button class="btn ghost" id="preset">Load part slots</button></div>
+  </section>
+
+  <section class="card">
+    <div class="row">
+      <div><label for="markup">Markup on parts (%)</label><input id="markup" type="number" inputmode="decimal" value="10" min="0"></div>
+      <div><label for="labor">Build labor ($)</label><input id="labor" type="number" inputmode="decimal" value="100" min="0"></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <div class="sum"><span>Parts cost</span><span class="mono" id="sCost">$0.00</span></div>
+    <div class="sum"><span>Markup</span><span class="mono" id="sMark">$0.00</span></div>
+    <div class="sum"><span>Labor</span><span class="mono" id="sLab">$0.00</span></div>
+    <div class="sum"><span>Your profit</span><span class="mono profit" id="sProfit">$0.00</span></div>
+    <div style="margin-top:10px;color:var(--mute);font-size:13px">Customer total</div>
+    <div class="total mono" id="sTotal">$0.00</div>
+    <div class="btns" style="margin-top:12px">
+      <button class="btn" id="copy">Copy quote</button>
+      <button class="btn ghost" id="save">Save build</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <label>Saved builds</label>
+    <div id="saved"></div>
+    <div class="btns" style="margin-top:10px"><button class="btn ghost" id="new">New build</button></div>
+  </section>
+</main>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+(function(){
+  var SLOTS=["CPU","GPU","Motherboard","RAM","Storage","PSU","Case","Cooler"];
+  var KEY="buildquote:v1";
+  var state={parts:[],saved:[]};
+  var $=function(id){return document.getElementById(id)};
+
+  function load(){
+    try{var r=localStorage.getItem(KEY); if(r){var d=JSON.parse(r); if(d&&d.saved) state.saved=d.saved;}}catch(e){}
+  }
+  function persist(){
+    try{localStorage.setItem(KEY,JSON.stringify({saved:state.saved}))}catch(e){toast("Storage unavailable")}
+  }
+  function money(n){return "$"+(isFinite(n)?n:0).toFixed(2).replace(/\B(?=(\d{3})+(?!\d))/g,",")}
+  function num(v){var n=parseFloat(v);return isFinite(n)?n:0}
+  function toast(m){var t=$("toast");t.textContent=m;t.classList.add("show");clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove("show")},1800)}
+  function esc(s){return String(s).replace(/[&<>"']/g,function(c){return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]})}
+
+  function addPart(slot,name,price){state.parts.push({slot:slot||"Other",name:name||"",price:price||""});renderParts()}
+
+  function renderParts(){
+    var box=$("parts");box.innerHTML="";
+    state.parts.forEach(function(p,i){
+      var row=document.createElement("div");row.className="part";
+      var opts=SLOTS.concat(["Other"]).map(function(s){return '<option'+(s===p.slot?' selected':'')+'>'+s+'</option>'}).join("");
+      row.innerHTML='<select aria-label="Part type">'+opts+'</select>'+
+        '<input aria-label="Part name" placeholder="Part name" value="'+esc(p.name)+'">'+
+        '<input class="price mono" aria-label="Part cost" inputmode="decimal" placeholder="0.00" value="'+esc(p.price)+'">'+
+        '<button class="x" aria-label="Remove part">&times;</button>';
+      var el=row.children;
+      el[0].onchange=function(){p.slot=el[0].value};
+      el[1].oninput=function(){p.name=el[1].value};
+      el[2].oninput=function(){p.price=el[2].value;calc()};
+      el[3].onclick=function(){state.parts.splice(i,1);renderParts()};
+      box.appendChild(row);
+    });
+    calc();
+  }
+
+  function calc(){
+    var cost=state.parts.reduce(function(a,p){return a+num(p.price)},0);
+    var mark=cost*num($("markup").value)/100;
+    var lab=num($("labor").value);
+    var total=cost+mark+lab, profit=mark+lab;
+    $("sCost").textContent=money(cost);
+    $("sMark").textContent=money(mark);
+    $("sLab").textContent=money(lab);
+    $("sProfit").textContent=money(profit);
+    $("sTotal").textContent=money(total);
+    return {cost:cost,mark:mark,lab:lab,total:total,profit:profit};
+  }
+
+  function quoteText(){
+    var c=calc(), m=num($("markup").value);
+    var lines=[];
+    lines.push("PC Build Quote"+($("bname").value?" - "+$("bname").value:""));
+    if($("cust").value) lines.push("For: "+$("cust").value);
+    lines.push("");
+    var markF=1+m/100;
+    state.parts.forEach(function(p){
+      if(p.name||num(p.price)) lines.push(p.slot+": "+(p.name||"-")+"  "+money(num(p.price)*markF));
+    });
+    lines.push("Build labor: "+money(c.lab));
+    lines.push("");
+    lines.push("Total: "+money(c.total));
+    return lines.join("\n");
+  }
+
+  function copy(){
+    var t=quoteText();
+    if(navigator.clipboard&&navigator.clipboard.writeText){
+      navigator.clipboard.writeText(t).then(function(){toast("Quote copied")},fallback);
+    }else fallback();
+    function fallback(){
+      var ta=document.createElement("textarea");ta.value=t;document.body.appendChild(ta);ta.select();
+      try{document.execCommand("copy");toast("Quote copied")}catch(e){toast("Copy failed")}
+      document.body.removeChild(ta);
+    }
+  }
+
+  function save(){
+    var name=$("bname").value||$("cust").value||"Untitled build";
+    var rec={id:Date.now(),cust:$("cust").value,bname:$("bname").value,markup:$("markup").value,labor:$("labor").value,parts:state.parts.map(function(p){return {slot:p.slot,name:p.name,price:p.price}}),total:calc().total,label:name};
+    state.saved.unshift(rec);persist();renderSaved();toast("Build saved");
+  }
+
+  function renderSaved(){
+    var box=$("saved");
+    if(!state.saved.length){box.innerHTML='<p class="empty">No saved builds yet. Save one to reuse it later.</p>';return}
+    box.innerHTML="";
+    state.saved.forEach(function(r){
+      var d=document.createElement("div");d.className="saved";
+      d.innerHTML='<button class="open"><strong>'+esc(r.label)+'</strong><small>'+esc(r.cust||"No customer")+' &middot; <span class="mono">'+money(r.total)+'</span></small></button><button class="x" aria-label="Delete build">&times;</button>';
+      d.children[0].onclick=function(){
+        $("cust").value=r.cust||"";$("bname").value=r.bname||"";$("markup").value=r.markup;$("labor").value=r.labor;
+        state.parts=r.parts.map(function(p){return {slot:p.slot,name:p.name,price:p.price}});
+        renderParts();window.scrollTo({top:0});toast("Build loaded");
+      };
+      d.children[1].onclick=function(){state.saved=state.saved.filter(function(x){return x.id!==r.id});persist();renderSaved()};
+      box.appendChild(d);
+    });
+  }
+
+  function fresh(){
+    $("cust").value="";$("bname").value="";$("markup").value="10";$("labor").value="100";
+    state.parts=[];SLOTS.forEach(function(s){state.parts.push({slot:s,name:"",price:""})});
+    renderParts();
+  }
+
+  $("add").onclick=function(){addPart("Other")};
+  $("preset").onclick=function(){SLOTS.forEach(function(s){if(!state.parts.some(function(p){return p.slot===s})) state.parts.push({slot:s,name:"",price:""})});renderParts()};
+  $("markup").oninput=calc;$("labor").oninput=calc;
+  $("copy").onclick=copy;$("save").onclick=save;$("new").onclick=fresh;
+
+  load();fresh();renderSaved();
+})();
+</script>
+</body>
+</html>
